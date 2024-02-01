@@ -1,4 +1,5 @@
 import sys
+import argparse
 import subprocess
 
 def text_to_html(input_file, output_file=None):
@@ -23,6 +24,26 @@ def text_to_html(input_file, output_file=None):
 
     print(f"Conversion completed. HTML file saved as {output_file}")
 
+def get_storage_stats():
+    try:
+        capacity_command = "df -h / | awk 'NR==2{print $2}'"
+        usage_command = "df -h / | awk 'NR==2{print $3}'"
+
+        capacity_result = subprocess.run(capacity_command, shell=True, capture_output=True, text=True, check=True).stdout.strip()
+        usage_result = subprocess.run(usage_command, shell=True, capture_output=True, text=True, check=True).stdout.strip()
+
+        capacity = int(capacity_result[:-1])
+        usage = int(usage_result[:-1])
+
+        percentage = (usage / capacity) * 100
+
+        result = f"Storage Usage: {usage_result}/{capacity} ({percentage:.2f}%)"
+
+    except subprocess.CalledProcessError as e:
+        result = [f"Error getting storage stats: {e}"]
+
+    return result
+
 def create_progress_bar(current_value, total_value, bar_length=20):
     percentage = int((current_value / total_value) * 100)
     progress = int((current_value / total_value) * bar_length)
@@ -33,8 +54,8 @@ def shell_tasks():
     #list of shell commands to run. Output will be passed to index.html file
     output = []
     commands = [
-        "echo hello",
-        "echo world"
+        # "echo hello",
+        # "echo world"
     ]
     for command in commands:
         # print(command)
@@ -55,7 +76,7 @@ def new_text_to_html(output, output_file=None):
     if output_file is None:
         output_file = "index.html"
     
-    write_line_to_file('<html>\n<head>\n<title>Text to HTML</title>\n</head>\n<body>\n')
+    write_line_to_file('<html>\n<head>\n<title>Server Stats Page</title>\n</head>\n<body>\n')
     # html_content = '<html>\n<head>\n<title>Text to HTML</title>\n</head>\n<body>\n'
     for out in output:
         line = str(out).strip()
@@ -78,6 +99,7 @@ def get_power_stats():
         result = f"Error executing command: {e}"
 
     pwrstat = []
+    pwrstat.append("---POWER STATS---")
     pwrstat.append(result[11])#.split(".")[-1]
     pwrstat.append(result[14])#.split(".")[-1]
     pwrstat.append(result[15])#.split(".")[-1]
@@ -85,22 +107,40 @@ def get_power_stats():
     pwrstat.append(result[19])#.split(".")[-1]
     return pwrstat
 
+def get_uptime():
+    time = subprocess.run("uptime", shell=True, capture_output=True, text=True, check=True).stdout.split(",")[0].split("up")[1]
+    uptime = f"Uptime: {time}"
+    return uptime
+
 def python_tasks():
     pwrstat = get_power_stats()
 
     return pwrstat
 
+def get_server_stats():
+    results = []
+    results.append("---SERVER STATS---")
+    storage_stats = get_storage_stats()
+    uptime = get_uptime()
+    results.append(uptime)
+    results.append(storage_stats)
+    return results
+
 if __name__ == "__main__":
-    open("index.html", 'w').close() #blank the file
+    parser = argparse.ArgumentParser(description='Process several commands and generate an HTML file.')
+    parser.add_argument('--output-file', '-o', type=str, default='index.html', help='Output HTML file name/path')
+    args = parser.parse_args()
+
+    open(args.output_file, 'w').close()  # blank the file
 
     output = []
     shell_output = shell_tasks()
     pwrstat = get_power_stats()
-    # output.append(shell_output[:])
-    # print(output)
-    # output.append(pwrstat[:])
-    # print(output)
-    output = [*shell_output, *pwrstat]
+    server_stats = get_server_stats()
+    
+    
+    output = output + ([*shell_output, *server_stats, *pwrstat])
     print(output)
-    new_text_to_html(output, "index.html")
+    new_text_to_html(output, args.output_file)
     print("I do nothing yet")
+    subprocess.run(['cat', 'index.html'], capture_output=False, text=True, check=True)
