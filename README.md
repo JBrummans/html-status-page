@@ -34,3 +34,5 @@ Load......................... 70 Watt(18 %)
 
 Last Power Event............. Blackout at 2024/01/01 01:01:01 for 15 sec.
 ```
+
+I use Nginx Proxy Manager for Proxy and SSL to the site.
