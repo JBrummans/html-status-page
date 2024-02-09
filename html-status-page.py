@@ -2,6 +2,7 @@ import sys
 import argparse
 import subprocess
 import psutil
+from datetime import datetime
 
 def text_to_html(input_file, output_file=None):
     if output_file is None:
@@ -63,19 +64,27 @@ def shell_tasks():
     return output
 
 def write_line_to_file(line, output_file):
-    file = open(output_file, "a")
-    file.write(str(line)+"\n")
-    file.close
+    with open(output_file, "a") as file:
+        file.write(f"{line}\n")
+
 
 def new_text_to_html(output, output_file=None):
     if output_file is None:
         output_file = "index.html"
+    
+    write_line_to_file('<html>\n<head>\n<title>Server Stats Page</title>\n</head>\n<body>\n', output_file)
+    
+    # Write each line of output
+    for out in output:
+        line = str(out).strip()
+        write_line_to_file(f'<p>{line}</p>', output_file)
 
-    with open(output_file, "w") as html_file:
-        html_file.write('<html>\n<head>\n<title>Server Stats Page</title>\n</head>\n<body>\n')
-        for out in output:
-            html_file.write(f'<p>{out.strip()}</p>\n')
-        html_file.write('</body>\n</html>')
+    # Add last updated timestamp
+    last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    write_line_to_file('<br>', output_file)
+    write_line_to_file(f'<p>Last updated: {last_updated}</p>', output_file)
+   
+    write_line_to_file('</body>\n</html>', output_file)
 
     print(f"Conversion completed. HTML file saved as {output_file}")
 
