@@ -134,14 +134,13 @@ def python_tasks():
     return pwrstat
 
 def get_server_stats():
-    results = []
-    results.append("---SERVER STATS---")
-    storage_stats = get_storage_stats()
-    uptime = get_uptime()
-    cpu_usage = get_cpu_usage()
-    memory_usage = get_memory_usage()
-    results.extend([uptime, storage_stats, cpu_usage, memory_usage])
-    return results
+    return [
+        "---SERVER STATS---",
+        get_uptime(),
+        get_storage_stats(),
+        get_cpu_usage(),
+        get_memory_usage()
+    ]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process several commands and generate an HTML file.')
