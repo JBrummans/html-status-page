@@ -1,6 +1,7 @@
 import sys
 import argparse
 import subprocess
+import psutil
 
 def text_to_html(input_file, output_file=None):
     with open(input_file, 'r') as txt_file:
@@ -44,6 +45,20 @@ def get_storage_stats():
 
     return result
 
+def get_cpu_usage():
+    try:
+        result = psutil.cpu_percent()
+        return f"CPU Usage: {result}%"
+    except subprocess.CalledProcessError as e:
+        return f"Error getting CPU usage: {e}"
+
+def get_memory_usage():
+    try:
+        result = psutil.virtual_memory().percent
+        return f"Memory Usage: {result}%"
+    except subprocess.CalledProcessError as e:
+        return f"Error getting memory usage: {e}"
+
 def create_progress_bar(current_value, total_value, bar_length=20):
     percentage = int((current_value / total_value) * 100)
     progress = int((current_value / total_value) * bar_length)
@@ -67,25 +82,26 @@ def shell_tasks():
         output.append(result)
     return output
 
-def write_line_to_file(line):
-    file = open("index.html", "a")
+def write_line_to_file(line, output_file):
+    file = open(output_file, "a")
     file.write(str(line)+"\n")
     file.close
 
 def new_text_to_html(output, output_file=None):
+    # print(output_file)
     if output_file is None:
         output_file = "index.html"
-    
-    write_line_to_file('<html>\n<head>\n<title>Server Stats Page</title>\n</head>\n<body>\n')
+    print(output_file)
+    write_line_to_file('<html>\n<head>\n<title>Server Stats Page</title>\n</head>\n<body>\n', output_file)
     # html_content = '<html>\n<head>\n<title>Text to HTML</title>\n</head>\n<body>\n'
     for out in output:
         line = str(out).strip()
         # html_content += f'<p>{line}</p>'  # Use <br> for line breaks
-        write_line_to_file(f'<p>{line}</p>')
+        write_line_to_file(f'<p>{line}</p>', output_file)
 
 
     # html_content += '</body>\n</html>'
-    write_line_to_file('</body>\n</html>')
+    write_line_to_file('</body>\n</html>', output_file)
     # with open(output_file, 'w') as html_file:
     #     html_file.write(html_content)
 
@@ -122,8 +138,9 @@ def get_server_stats():
     results.append("---SERVER STATS---")
     storage_stats = get_storage_stats()
     uptime = get_uptime()
-    results.append(uptime)
-    results.append(storage_stats)
+    cpu_usage = get_cpu_usage()
+    memory_usage = get_memory_usage()
+    results.extend([uptime, storage_stats, cpu_usage, memory_usage])
     return results
 
 if __name__ == "__main__":
@@ -140,7 +157,7 @@ if __name__ == "__main__":
     
     
     output = output + ([*shell_output, *server_stats, *pwrstat])
-    print(output)
+    # print(output)
     new_text_to_html(output, args.output_file)
-    print("I do nothing yet")
-    subprocess.run(['cat', 'index.html'], capture_output=False, text=True, check=True)
+    subprocess.run(['cat', args.output_file], capture_output=False, text=True, check=True)
+    print("Finished")
