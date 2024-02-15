@@ -3,6 +3,9 @@ import argparse
 import subprocess
 import psutil
 from datetime import datetime
+import requests
+from requests.auth import HTTPDigestAuth
+
 
 def text_to_html(input_file, output_file=None):
     if output_file is None:
@@ -81,6 +84,7 @@ def new_text_to_html(output, output_file=None):
 
     # Add last updated timestamp
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     write_line_to_file('<br>', output_file)
     write_line_to_file(f'<p>Last updated: {last_updated}</p>', output_file)
    
@@ -121,6 +125,21 @@ def get_server_stats():
         get_memory_usage()
     ]
 
+def get_torrent(api_url):
+    response = requests.get(api_url)
+
+    if response.status_code != 200:
+        return([f"Error fetching downloads: {response.status_code}"])
+        
+    torrents = response.json()
+    completed = 0
+    for torrent in torrents:
+        if torrent['state'] in ("stalledUP","pausedUP","uploading", "forcedUP"):
+            completed += 1
+        # print(f"Name: {torrent['name']}")
+        # print(f"State: {torrent['state']}")
+    return([f"Completed/Total Downloads: {completed}/{len(torrents)}"])
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process several commands and generate an HTML file.')
     parser.add_argument('--output-file', '-o', type=str, default='index.html', help='Output HTML file name/path')
@@ -129,10 +148,13 @@ if __name__ == "__main__":
     with open(args.output_file, 'w'):
         pass  # Blank the file
 
+    
     output = []
     output.extend(shell_tasks())
     output.extend(get_server_stats())
+    output.extend(get_torrent("http://192.168.0.12:8082/api/v2/torrents/info"))
     output.extend(get_power_stats())
+    
     new_text_to_html(output, args.output_file)
     subprocess.run(['cat', args.output_file], capture_output=False, text=True, check=True)
     print("Finished")
