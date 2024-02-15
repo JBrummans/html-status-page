@@ -142,32 +142,20 @@ def get_torrent(api_url):
     return([f"Completed/Total Downloads: {completed}/{len(torrents)}"])
 
 def get_pi_stats(PI_API, PI_ADDRESS):
-
-    # Pi-hole API endpoint for summary data
     api_endpoint = f'http://{PI_ADDRESS}/admin/api.php?summaryRaw&auth={PI_API}'
 
-    # Send GET request to the API endpoint
     response = requests.get(api_endpoint)
 
-    # Check if the request was successful (status code 200)
     if response.status_code != 200:
-        print(f'Failed to fetch data from Pi-hole. Status code: {response.status_code}')
+        print([f'Failed to fetch data from Pi-hole. Status code: {response.status_code}'])
     
-    # Parse the JSON response
     data = response.json()
-    print(data)
-    # Extract relevant information from the response
+
     ads_blocked_today = data['ads_blocked_today']
     ads_percentage_today = round(data['ads_percentage_today'], 2)
     dns_queries_today = data['dns_queries_today']
-    domains_being_blocked = data['domains_being_blocked']
     
     return([f'Ads Blocked Today: {ads_blocked_today}',f'Percentage Ads Today: {ads_percentage_today}%',f'DNS Queries Today: {dns_queries_today}']) 
-    # Print or process the extracted information
-    print(f'Ads Blocked Today: {ads_blocked_today}')
-    print(f'DNS Queries Today: {dns_queries_today}')
-    print(f'Domains Being Blocked: {domains_being_blocked}')
-                                                       
 
 if __name__ == "__main__":
     env_vars = dotenv_values('.env')
