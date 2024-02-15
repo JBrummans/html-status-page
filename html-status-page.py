@@ -39,10 +39,15 @@ def get_storage_stats():
 
 
 def get_cpu_usage():
-    return f"CPU Usage: {psutil.cpu_percent()}%"
+    cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
+    return f"CPU Usage: {round(sum(cpu_usage)/len(cpu_usage),2)}%"
 
 def get_memory_usage():
-    return f"Memory Usage: {psutil.virtual_memory().percent}%"
+    memory = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+    mem = f"Memory Usage: {round(memory.used/1024/1024)}/{round(memory.total/1024/1024)}MB {round(memory.percent)}%"
+    sw = f"Swap Usage: {round(swap.used/1024/1024)}/{round(swap.total/1024/1024)}MB {round(swap.percent)}%"
+    return mem, sw
 
 def create_progress_bar(current_value, total_value, bar_length=20):
     percentage = int((current_value / total_value) * 100)
@@ -51,7 +56,6 @@ def create_progress_bar(current_value, total_value, bar_length=20):
     return f"{bar} {percentage}%"
 
 def shell_tasks():
-    #list of shell commands to run. Output will be passed to index.html file
     output = []
     commands = [
         # "echo hello",
@@ -96,7 +100,6 @@ def new_text_to_html(output, output_file=None):
 def get_power_stats():
     try:
         result = str((subprocess.run("pwrstat -status", shell=True, capture_output=True, text=True, check=True)).stdout).splitlines(True)
-        # print(result)
     except subprocess.CalledProcessError as e:
         result = f"Error executing command: {e}"
 
@@ -118,13 +121,15 @@ def python_tasks():
     return pwrstat
 
 def get_server_stats():
-    return [
-        "---SERVER STATS---",
-        get_uptime(),
-        get_storage_stats(),
-        get_cpu_usage(),
-        get_memory_usage()
-    ]
+    results = []
+    results.append("---SERVER STATS---")
+    results.append(get_uptime())
+    results.append(get_storage_stats())
+    results.append(get_cpu_usage())
+    mem, swap = get_memory_usage()
+    results.append(mem)
+    results.append(swap)
+    return results
 
 def get_torrent(api_url):
     response = requests.get(api_url)
