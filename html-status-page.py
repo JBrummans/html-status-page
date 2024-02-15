@@ -26,10 +26,10 @@ def text_to_html(input_file, output_file=None):
 
 def run_shell_command(command):
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True).stdout.strip()
     except subprocess.CalledProcessError as e:
         result = f"Error executing command: {e}"
-    return result.strip()
+    return result
 
 def get_storage_stats():
     capacity = run_shell_command("df -h / | awk 'NR==2{print $2}'")
@@ -128,34 +128,24 @@ def get_server_stats():
 
 def get_torrent(api_url):
     response = requests.get(api_url)
-
     if response.status_code != 200:
-        return([f"Error fetching downloads: {response.status_code}"])
-        
+        return [f"Error fetching downloads: {response.status_code}"]
+
     torrents = response.json()
-    completed = 0
-    for torrent in torrents:
-        if torrent['state'] in ("stalledUP","pausedUP","uploading", "forcedUP"):
-            completed += 1
-        # print(f"Name: {torrent['name']}")
-        # print(f"State: {torrent['state']}")
-    return([f"Completed/Total Downloads: {completed}/{len(torrents)}"])
+    completed = sum(1 for torrent in torrents if torrent['state'] in ("stalledUP", "pausedUP", "uploading", "forcedUP"))
+    return [f"Completed/Total Downloads: {completed}/{len(torrents)}"]
 
-def get_pi_stats(PI_API, PI_ADDRESS):
-    api_endpoint = f'http://{PI_ADDRESS}/admin/api.php?summaryRaw&auth={PI_API}'
-
+def get_pi_stats(pi_api, pi_address):
+    api_endpoint = f'http://{pi_address}/admin/api.php?summaryRaw&auth={pi_api}'
     response = requests.get(api_endpoint)
-
     if response.status_code != 200:
-        print([f'Failed to fetch data from Pi-hole. Status code: {response.status_code}'])
-    
-    data = response.json()
+        return [f'Failed to fetch data from Pi-hole. Status code: {response.status_code}']
 
+    data = response.json()
     ads_blocked_today = data['ads_blocked_today']
     ads_percentage_today = round(data['ads_percentage_today'], 2)
     dns_queries_today = data['dns_queries_today']
-    
-    return([f'Ads Blocked Today: {ads_blocked_today}',f'Percentage Ads Today: {ads_percentage_today}%',f'DNS Queries Today: {dns_queries_today}']) 
+    return [f'Blocked/Total Queries Today: {ads_blocked_today}/{dns_queries_today} ({ads_percentage_today}%)']
 
 if __name__ == "__main__":
     env_vars = dotenv_values('.env')
@@ -163,9 +153,9 @@ if __name__ == "__main__":
     parser.add_argument('--output-file', '-o', type=str, default='index.html', help='Output HTML file name/path')
     args = parser.parse_args()
 
-    PI_API=env_vars['PI_API']
-    PI_ADDRESS=env_vars['PI_ADDRESS']
-    QBT_API=env_vars['QBT_API']
+    pi_api=env_vars['PI_API']
+    pi_address=env_vars['PI_ADDRESS']
+    qbt_api=env_vars['QBT_API']
 
     with open(args.output_file, 'w'):
         pass  # Blank the file
@@ -173,8 +163,8 @@ if __name__ == "__main__":
     output = []
     output.extend(shell_tasks())
     output.extend(get_server_stats())
-    output.extend(get_torrent(QBT_API))
-    output.extend(get_pi_stats(PI_API, PI_ADDRESS))
+    output.extend(get_torrent(qbt_api))
+    output.extend(get_pi_stats(pi_api, pi_address))
     output.extend(get_power_stats())
     
     new_text_to_html(output, args.output_file)
