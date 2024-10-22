@@ -7,7 +7,6 @@ import requests
 from requests.auth import HTTPDigestAuth
 from dotenv import dotenv_values
 
-
 def text_to_html(input_file, output_file=None):
     if output_file is None:
         output_file = f"{input_file.split('.')[0]}.html"
@@ -31,12 +30,37 @@ def run_shell_command(command):
         result = f"Error executing command: {e}"
     return result
 
-def get_storage_stats():
-    capacity = run_shell_command("df -h / | awk 'NR==2{print $2}'")
-    usage = run_shell_command("df -h / | awk 'NR==2{print $3}'")
-    percentage = (int(usage[:-1]) / int(capacity[:-1])) * 100
-    return f"Storage Usage: {usage}/{capacity} ({percentage:.2f}%)"
+def get_immich_stats(api_url, api_key):
+    headers = {
+        'Accept': 'application/json',
+        'x-api-key': f'{api_key}'
+    }
+    payload = {}
+    print(headers)
+    response = requests.request("GET", api_url, headers=headers, data=payload)
+    if response.status_code == 200:
+        stats = response.json()
+        photos = stats.get('photos', 0)
+        videos = stats.get('videos', 0)
+        usage = stats.get('usage', 0)
+        return [
+            "---PHOTO LIBRARY USAGE STATS---",
+            f"Total Photos: {photos}",
+            f"Total Videos: {videos}",
+            f"Total Usage: {usage / (1024**3):.2f} GB"  # Convert bytes to GB
+        ]
+    else:
+        return [f"Error fetching Immich stats: {response.status_code}"]
 
+def get_storage_stats(storage_paths):
+    storage_results = []
+    paths = storage_paths.split(',')  # Split the storage paths from the .env file
+    for path in paths:
+        capacity = run_shell_command(f"df -h {path} | awk 'NR==2{{print $2}}'")
+        usage = run_shell_command(f"df -h {path} | awk 'NR==2{{print $3}}'")
+        percentage = run_shell_command(f"df -h {path} | awk 'NR==2{{print $5}}'")
+        storage_results.append(f"Storage Usage ({path}): {usage}/{capacity} ({percentage})")
+    return storage_results
 
 def get_cpu_usage():
     cpu_usage = psutil.cpu_percent(interval=None, percpu=True)
@@ -105,26 +129,26 @@ def get_power_stats():
 
     pwrstat = []
     pwrstat.append("---POWER STATS---")
-    pwrstat.append(result[11])#.split(".")[-1]
-    pwrstat.append(result[14])#.split(".")[-1]
-    pwrstat.append(result[15])#.split(".")[-1]
-    pwrstat.append(result[16])#.split(".")[-1]
-    pwrstat.append(result[19])#.split(".")[-1]
+    pwrstat.append(result[11].split(". ")[0].strip(".") + ": " + result[11].split(". ")[-1])
+    pwrstat.append(result[14].split(". ")[0].strip(".") + ": " + result[14].split(". ")[-1])
+    pwrstat.append(result[15].split(". ")[0].strip(".") + ": " + result[15].split(". ")[-1])
+    pwrstat.append(result[16].split(". ")[0].strip(".") + ": " + result[16].split(". ")[-1])
+    pwrstat.append(result[19].split(". ")[0].strip(".") + ": " + result[19].split(". ")[-1])    
     return pwrstat
 
 def get_uptime():
     result = run_shell_command("uptime")
     return f"Uptime: {result.split(',')[0].split('up')[1]}"
 
-def python_tasks():
-    pwrstat = get_power_stats()
-    return pwrstat
+# def python_tasks():
+#     pwrstat = get_power_stats()
+#     return pwrstat
 
 def get_server_stats():
     results = []
     results.append("---SERVER STATS---")
     results.append(get_uptime())
-    results.append(get_storage_stats())
+    # results.append(get_storage_stats())
     results.append(get_cpu_usage())
     mem, swap = get_memory_usage()
     results.append(mem)
@@ -153,25 +177,34 @@ def get_pi_stats(pi_api, pi_address):
     return [f'Blocked/Total Queries Today: {ads_blocked_today}/{dns_queries_today} ({ads_percentage_today}%)']
 
 if __name__ == "__main__":
-    env_vars = dotenv_values('.env')
+    env_vars = dotenv_values('/home/jbrummans/source/html-status-page/.env')
     parser = argparse.ArgumentParser(description='Process several commands and generate an HTML file.')
     parser.add_argument('--output-file', '-o', type=str, default='index.html', help='Output HTML file name/path')
     args = parser.parse_args()
 
-    pi_api=env_vars['PI_API']
-    pi_address=env_vars['PI_ADDRESS']
-    qbt_api=env_vars['QBT_API']
+    pi_api = env_vars['PI_API']
+    pi_address = env_vars['PI_ADDRESS']
+    qbt_api = env_vars['QBT_API']
+    storage_paths = env_vars['STORAGE_PATHS']
+    immich_api_url = env_vars['IMMICH_API_URL']
+    immich_api_key = env_vars['IMMICH_API_KEY']
+    # jellyfin_api_url = env_vars['JELLYFIN_API_URL']
+    # jellyfin_api_key = env_vars['JELLYFIN_API_KEY']
 
+    # Blank the file before writing
     with open(args.output_file, 'w'):
-        pass  # Blank the file
+        pass
 
     output = []
     output.extend(shell_tasks())
     output.extend(get_server_stats())
+    output.extend(get_storage_stats(storage_paths))
     output.extend(get_torrent(qbt_api))
     output.extend(get_pi_stats(pi_api, pi_address))
+    output.extend(get_immich_stats(immich_api_url, immich_api_key))  # Add Immich stats here
+    # output.extend(get_jellyfin_stats(jellyfin_api_url, jellyfin_api_key))  # Add Immich stats here
     output.extend(get_power_stats())
-    
+
     new_text_to_html(output, args.output_file)
     subprocess.run(['cat', args.output_file], capture_output=False, text=True, check=True)
     print("Finished")
